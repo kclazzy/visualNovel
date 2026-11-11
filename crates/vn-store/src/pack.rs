@@ -17,6 +17,13 @@ pub struct Manifest {
     pub format_version: u32,
     /// `false` — пакет несёт только сценарий; ресурсы остаются от установленной версии.
     pub has_assets: bool,
+    /// `false` — пакет несёт только ресурсы; сценарий остаётся от установленной версии.
+    #[serde(default = "yes")]
+    pub has_story: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 type Zip = ZipArchive<Cursor<Vec<u8>>>;
@@ -31,22 +38,44 @@ fn put(zip: &mut ZipWriter<Cursor<Vec<u8>>>, name: &str, bytes: &[u8], compress:
     zip.write_all(bytes).map_err(zerr)
 }
 
+fn manifest_of(story: &Story, has_assets: bool, has_story: bool) -> Manifest {
+    Manifest { id: story.meta.id.clone(), name: story.meta.name.clone(), version: story.meta.version.clone(), story_version: story.meta.story_version, format_version: story.meta.format_version, has_assets, has_story }
+}
+
+fn put_manifest(zip: &mut ZipWriter<Cursor<Vec<u8>>>, m: &Manifest) -> Result<(), String> {
+    put(zip, "manifest.json", serde_json::to_string_pretty(m).map_err(zerr)?.as_bytes(), true)
+}
+
 fn put_header(zip: &mut ZipWriter<Cursor<Vec<u8>>>, story: &Story, has_assets: bool) -> Result<(), String> {
-    let m = Manifest { id: story.meta.id.clone(), name: story.meta.name.clone(), version: story.meta.version.clone(), story_version: story.meta.story_version, format_version: story.meta.format_version, has_assets };
-    put(zip, "manifest.json", serde_json::to_string_pretty(&m).map_err(zerr)?.as_bytes(), true)?;
+    put_manifest(zip, &manifest_of(story, has_assets, true))?;
     put(zip, "story.json", serde_json::to_string(story).map_err(zerr)?.as_bytes(), true)
 }
 
+fn put_assets(zip: &mut ZipWriter<Cursor<Vec<u8>>>, story: &Story, dir: &Path) -> Result<(), String> {
+    for asset in story.assets_used() {
+        let bytes = std::fs::read(dir.join(&asset)).map_err(|e| format!("Ресурс «{asset}» не прочитан: {e}"))?;
+        put(zip, &asset, &bytes, false)?;
+    }
+    Ok(())
+}
+
+/// Собрать пакет только с ресурсами: перерисованные картинки, новая музыка. Сценарий в него не входит.
+pub fn build_assets(story: &Story, project: &Path) -> Result<Vec<u8>, String> {
+    let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+    put_manifest(&mut zip, &manifest_of(story, true, false))?;
+    put_assets(&mut zip, story, project)?;
+    Ok(zip.finish().map_err(zerr)?.into_inner())
+}
+
+/// Собрать пакет. `project` — папка проекта, из которой берутся используемые ресурсы;
+/// `None` — пакет только со сценарием.
 /// Собрать пакет. `project` — папка проекта, из которой берутся используемые ресурсы;
 /// `None` — пакет только со сценарием.
 pub fn build(story: &Story, project: Option<&Path>) -> Result<Vec<u8>, String> {
     let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
     put_header(&mut zip, story, project.is_some())?;
     if let Some(dir) = project {
-        for asset in story.assets_used() {
-            let bytes = std::fs::read(dir.join(&asset)).map_err(|e| format!("Ресурс «{asset}» не прочитан: {e}"))?;
-            put(&mut zip, &asset, &bytes, false)?;
-        }
+        put_assets(&mut zip, story, dir)?;
     }
     Ok(zip.finish().map_err(zerr)?.into_inner())
 }
@@ -72,6 +101,9 @@ impl Pack {
         if manifest.format_version > FORMAT_VERSION {
             return Err(format!("Пакет истории создан для более новой версии движка (формат {}). Обновите игру целиком.", manifest.format_version));
         }
+        if !manifest.has_story {
+            return Err("В этом пакете только ресурсы: он устанавливается как обновление поверх игры".into());
+        }
         let story: Story = serde_json::from_slice(&read_entry(&mut zip, "story.json").ok_or("В пакете нет story.json")?).map_err(zerr)?;
         Ok(Pack { manifest, story, zip: Mutex::new(zip) })
     }
@@ -86,9 +118,47 @@ impl Pack {
     }
 }
 
+fn assets_of(zip: &mut Zip) -> Vec<(String, Vec<u8>)> {
+    let names: Vec<String> = zip.file_names().filter(|n| n.starts_with("assets/")).map(str::to_string).collect();
+    names.into_iter().filter_map(|n| read_entry(zip, &n).map(|b| (n, b))).collect()
+}
+
+/// Наложить пакет ресурсов: файлы из него заменяют одноимённые, сценарий и версия остаются.
+/// `None` — обновление не является пакетом ресурсов.
+fn merge_assets(installed: &[u8], update: &[u8]) -> Option<Result<(Vec<u8>, Manifest), String>> {
+    let mut new = ZipArchive::new(Cursor::new(update.to_vec())).ok()?;
+    let manifest: Manifest = serde_json::from_slice(&read_entry(&mut new, "manifest.json")?).ok()?;
+    if manifest.has_story {
+        return None;
+    }
+    Some((|| {
+        let old = Pack::open(installed.to_vec())?;
+        if manifest.id != old.manifest.id {
+            return Err(format!("Обновление предназначено для другой истории («{}»)", manifest.name));
+        }
+        let fresh = assets_of(&mut new);
+        let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+        put_header(&mut zip, &old.story, true)?;
+        for name in old.asset_names() {
+            if !fresh.iter().any(|(n, _)| *n == name) {
+                if let Some(bytes) = old.asset(&name) {
+                    put(&mut zip, &name, &bytes, false)?;
+                }
+            }
+        }
+        for (name, bytes) in &fresh {
+            put(&mut zip, name, bytes, false)?;
+        }
+        Ok((zip.finish().map_err(zerr)?.into_inner(), Manifest { has_assets: true, ..old.manifest.clone() }))
+    })())
+}
+
 /// Наложить обновление на установленный пакет. Возвращает новый пакет целиком.
 /// Обновление от другой истории или старее установленного отвергается.
 pub fn merge_update(installed: Vec<u8>, update: Vec<u8>) -> Result<(Vec<u8>, Manifest), String> {
+    if let Some(result) = merge_assets(&installed, &update) {
+        return result;
+    }
     let new = Pack::open(update.clone())?;
     let old = Pack::open(installed)?;
     if new.manifest.id != old.manifest.id {
@@ -157,6 +227,23 @@ mod tests {
         assert_eq!(pack.manifest, manifest);
         assert_eq!(pack.story.scenes[0].name, "Переименована");
         assert_eq!(pack.asset("assets/backgrounds/room.png").unwrap(), b"PNGDATA");
+    }
+
+    #[test]
+    fn assets_only_update_swaps_files_and_leaves_the_story_alone() {
+        let (tmp, mut story) = project();
+        let installed = build(&story, Some(tmp.path())).unwrap();
+        std::fs::write(tmp.path().join("assets/backgrounds/room.png"), b"REDRAWN").unwrap();
+        story.scenes[0].name = "Правка, которая не должна попасть к игроку".into();
+        let update = build_assets(&story, tmp.path()).unwrap();
+        assert!(Pack::open(update.clone()).err().unwrap().contains("только ресурсы"), "такой пакет нельзя принять за игру");
+        let (merged, manifest) = merge_update(installed.clone(), update.clone()).unwrap();
+        let pack = Pack::open(merged).unwrap();
+        assert_eq!(pack.asset("assets/backgrounds/room.png").unwrap(), b"REDRAWN");
+        assert_eq!(pack.story, Pack::open(installed.clone()).unwrap().story, "сценарий прежний");
+        assert_eq!((manifest.story_version, manifest.has_assets), (1, true));
+        story.meta.id = "other".into();
+        assert!(merge_update(installed, build_assets(&story, tmp.path()).unwrap()).unwrap_err().contains("другой истории"));
     }
 
     #[test]

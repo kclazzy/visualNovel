@@ -48,14 +48,39 @@ pub fn export_desktop(project: &Path, story: &Story, player: &Path) -> Result<Pa
     Ok(out)
 }
 
-/// Выпустить файл обновления `builds/<имя>-update-<выпуск>.vnpak`.
-/// `with_assets = false` — только сценарий (маленький файл; ресурсы остаются прежними).
-pub fn export_update(project: &Path, story: &Story, with_assets: bool) -> Result<PathBuf, String> {
-    let bytes = pack::build(story, with_assets.then_some(project))?;
-    let path = project.join("builds").join(format!("{}-update-{}.vnpak", safe_name(&story.meta.name), story.meta.story_version));
+/// Что входит в файл обновления.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdateKind {
+    /// Сценарий и ресурсы.
+    Full,
+    /// Только сценарий: маленький файл, ресурсы у игрока остаются прежними.
+    Story,
+    /// Только ресурсы: перерисованные картинки, новая музыка; сценарий и номер выпуска не меняются.
+    Assets,
+}
+
+impl UpdateKind {
+    pub fn title(self) -> &'static str {
+        match self {
+            UpdateKind::Full => "полное обновление",
+            UpdateKind::Story => "только сценарий",
+            UpdateKind::Assets => "только ресурсы",
+        }
+    }
+}
+
+/// Выпустить файл обновления в `builds/`: `<имя>-update-<выпуск>.vnpak`
+/// или `<имя>-assets-<выпуск>.vnpak` для пакета ресурсов.
+pub fn export_update(project: &Path, story: &Story, kind: UpdateKind) -> Result<PathBuf, String> {
+    let (bytes, tag) = match kind {
+        UpdateKind::Full => (pack::build(story, Some(project))?, "update"),
+        UpdateKind::Story => (pack::build(story, None)?, "update"),
+        UpdateKind::Assets => (pack::build_assets(story, project)?, "assets"),
+    };
+    let path = project.join("builds").join(format!("{}-{tag}-{}.vnpak", safe_name(&story.meta.name), story.meta.story_version));
     write_atomic(&path, &bytes).map_err(io("Не удалось записать обновление"))?;
-    let log = project.join("changelog").join(format!("release-{}.txt", story.meta.story_version));
-    let line = format!("{} — выпуск {} (версия {}), {}\n", human_time(now()), story.meta.story_version, story.meta.version, if with_assets { "полное обновление" } else { "только сценарий" });
+    let log = project.join("changelog").join(if kind == UpdateKind::Assets { format!("release-{}-assets.txt", story.meta.story_version) } else { format!("release-{}.txt", story.meta.story_version) });
+    let line = format!("{} — выпуск {} (версия {}), {}\n", human_time(now()), story.meta.story_version, story.meta.version, kind.title());
     write_atomic(&log, line.as_bytes()).map_err(io("Не удалось записать журнал выпусков"))?;
     Ok(path)
 }
@@ -211,7 +236,7 @@ mod tests {
         story.scenes[0].events.pop();
         story.scenes[0].events.push(Event::new(EventKind::Goto { scene: next.id.clone() }));
         story.scenes.push(next);
-        let update = export_update(tmp.path(), &story, false).unwrap();
+        let update = export_update(tmp.path(), &story, UpdateKind::Story).unwrap();
         assert!(tmp.path().join("changelog/release-2.txt").exists());
         fs::copy(&update, game.join("update.vnpak")).unwrap();
         fs::write(game.join("чужое.vnpak"), b"junk").unwrap();

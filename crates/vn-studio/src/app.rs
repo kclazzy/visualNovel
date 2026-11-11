@@ -11,6 +11,7 @@ use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 use vn_core::model::*;
 use vn_core::validate::{has_errors, validate, Issue};
+use vn_store::export::UpdateKind;
 use vn_store::project::{self, AssetKind};
 use vn_store::saves::SaveStore;
 use vn_view::{DirAssets, GameView, Textures};
@@ -82,7 +83,7 @@ pub struct Project {
     pub notes: Vec<String>,
     pub built: Option<Built>,
     pub lan: Option<crate::lanserve::Server>,
-    pub release: Option<(String, bool)>,
+    pub release: Option<(String, UpdateKind)>,
     /// Раздел, в который попадают перетащенные в окно изображения.
     pub import_kind: AssetKind,
     changed_at: Option<f64>,
@@ -347,16 +348,19 @@ impl Studio {
         }
     }
 
-    fn release_update(&mut self, version: &str, with_assets: bool) {
+    fn release_update(&mut self, version: &str, kind: UpdateKind) {
         let Some(p) = &mut self.project else { return };
         if !p.check() {
             p.status = "Выпуск остановлен: исправьте ошибки".into();
             return;
         }
-        ops::bump_release(&mut p.story, version);
-        let result = p.save().and_then(|()| vn_store::export::export_update(&p.dir, &p.story, with_assets));
+        if kind != UpdateKind::Assets {
+            // Пакет ресурсов сценарий не меняет, поэтому и номер выпуска остаётся прежним.
+            ops::bump_release(&mut p.story, version);
+        }
+        let result = p.save().and_then(|()| vn_store::export::export_update(&p.dir, &p.story, kind));
         match result {
-            Ok(path) => p.built = Some(Built { message: format!("Обновление выпущено (выпуск {}). Игроку достаточно положить этот файл в папку игры и запустить её — сохранения останутся.", p.story.meta.story_version), path, web: false }),
+            Ok(path) => p.built = Some(Built { message: format!("Обновление готово ({}, выпуск {}). Игроку достаточно положить этот файл в папку игры и запустить её — сохранения останутся.", kind.title(), p.story.meta.story_version), path, web: false }),
             Err(e) => self.error = Some(e),
         }
     }
@@ -438,7 +442,7 @@ impl Studio {
                 }
                 ui.separator();
                 if ui.button("Выпустить обновление истории (.vnpak)…").clicked() {
-                    p.release = Some((p.story.meta.version.clone(), true));
+                    p.release = Some((p.story.meta.version.clone(), UpdateKind::Full));
                     ui.close();
                 }
             });
@@ -616,8 +620,8 @@ impl Studio {
             extra::notes_window(ctx, p);
             release = extra::release_window(ctx, p);
         }
-        if let Some((version, with_assets)) = release {
-            self.release_update(&version, with_assets);
+        if let Some((version, kind)) = release {
+            self.release_update(&version, kind);
         }
     }
 

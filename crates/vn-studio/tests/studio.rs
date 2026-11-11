@@ -116,6 +116,20 @@ fn phone_build_and_story_update_are_produced_from_the_menu() {
     let pack = vn_store::pack::Pack::open(std::fs::read(&p.built.as_ref().expect("обновление выпущено").path).unwrap()).unwrap();
     assert_eq!((pack.manifest.story_version, pack.manifest.id.as_str()), (2, p.story.meta.id.as_str()));
     assert!(!p.dirty(), "выпущенная версия сохранена в проекте");
+    let full = std::fs::read(&p.built.as_ref().unwrap().path).unwrap();
+    click(&mut h, "Закрыть");
+
+    click(&mut h, "Собрать");
+    click(&mut h, "Выпустить обновление истории (.vnpak)…");
+    h.get_by_label_contains("Только ресурсы").click();
+    h.run();
+    click(&mut h, "Выпустить");
+    let p = h.state().project.as_ref().unwrap();
+    assert_eq!(p.story.meta.story_version, 2, "пакет ресурсов не меняет номер выпуска");
+    let assets = std::fs::read(&p.built.as_ref().expect("пакет ресурсов выпущен").path).unwrap();
+    let (merged, manifest) = vn_store::pack::merge_update(full, assets).unwrap();
+    assert_eq!(manifest.story_version, 2);
+    assert_eq!(vn_store::pack::Pack::open(merged).unwrap().story, p.story, "игра после пакета ресурсов запускается с тем же сценарием");
 }
 
 const REPLY: &str = r#"Вот история:

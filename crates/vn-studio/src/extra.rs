@@ -7,6 +7,7 @@ use vn_core::analysis::endings;
 use vn_core::model::*;
 use vn_core::validate::Severity;
 use vn_core::view::sprite_layers;
+use vn_store::export::UpdateKind;
 use vn_store::project::{self, AssetKind};
 use vn_view::draw;
 
@@ -345,18 +346,24 @@ pub fn notes_window(ctx: &egui::Context, p: &mut Project) {
     }
 }
 
-/// Окно выпуска обновления. Возвращает версию и признак «с ресурсами», когда автор подтвердил.
-pub fn release_window(ctx: &egui::Context, p: &mut Project) -> Option<(String, bool)> {
+/// Окно выпуска обновления. Возвращает версию и состав пакета, когда автор подтвердил.
+pub fn release_window(ctx: &egui::Context, p: &mut Project) -> Option<(String, UpdateKind)> {
     let next = p.story.meta.story_version + 1;
-    let (version, with_assets) = p.release.as_mut()?;
+    let (version, kind) = p.release.as_mut()?;
     let answer = modal(ctx, "Выпуск обновления истории", |ui| {
-        ui.label(format!("Будет создан файл обновления (.vnpak), выпуск №{next}. Игрок кладёт его в папку игры — история обновляется, сохранения остаются и продолжаются с прежнего места."));
-        row(ui, "Версия", |ui| ui.add(egui::TextEdit::singleline(version).desired_width(80.0)));
-        ui.checkbox(with_assets, "включить ресурсы (изображения и звук)");
-        ui.weak("Без ресурсов файл маленький и содержит только сценарий — подходит, если новые картинки и музыка не добавлялись.");
+        ui.label("Будет создан файл обновления (.vnpak). Игрок кладёт его в папку игры — история обновляется, сохранения остаются и продолжаются с прежнего места.");
+        ui.radio_value(kind, UpdateKind::Full, "Полное: сценарий и ресурсы");
+        ui.radio_value(kind, UpdateKind::Story, "Только сценарий — маленький файл, если новых картинок и музыки нет");
+        ui.radio_value(kind, UpdateKind::Assets, "Только ресурсы — заменить картинки и звук, сценарий не трогать");
+        if *kind == UpdateKind::Assets {
+            ui.weak("Номер выпуска не меняется: пакет ресурсов ставится поверх текущего сценария.");
+        } else {
+            row(ui, "Версия", |ui| ui.add(egui::TextEdit::singleline(version).desired_width(80.0)));
+            ui.weak(format!("Это будет выпуск №{next}."));
+        }
         ui.horizontal(|ui| if ui.button("Выпустить").clicked() { Some(true) } else if ui.button("Отмена").clicked() { Some(false) } else { None }).inner
     })
     .flatten()?;
-    let (version, with_assets) = p.release.take()?;
-    answer.then_some((version, with_assets))
+    let chosen = p.release.take()?;
+    answer.then_some(chosen)
 }
