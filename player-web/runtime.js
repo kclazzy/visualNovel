@@ -374,6 +374,8 @@
           speed: ev.speed != null ? ev.speed : this.story.meta.text.speed,
           seen: st.event != null && st.seen.includes(st.event),
           sound: ev.sound ? ev.sound : null,
+          color: (ev.look && ev.look.color) || this.story.meta.text.color,
+          size: this.story.meta.text.size * ((ev.look && ev.look.size) || 1),
         };
       } else if (p.k === 'choice' && ev && ev.type === 'choice') {
         prompt = { kind: 'choice', prompt: plainText(ev.prompt, st.vars), options: this.options().map((o) => ({ id: o.id, text: plainText(o.text, st.vars) })) };

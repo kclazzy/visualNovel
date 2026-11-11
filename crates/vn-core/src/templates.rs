@@ -15,7 +15,7 @@ pub enum Template {
 }
 
 fn say(speaker: Option<CharId>, style: TextStyle, text: &str) -> Event {
-    Event::new(EventKind::Say { speaker, style, text: text.into(), expression: None, speed: None, sound: None })
+    Event::new(EventKind::Say { speaker, style, text: text.into(), expression: None, speed: None, sound: None, look: TextLook::default() })
 }
 
 impl Template {

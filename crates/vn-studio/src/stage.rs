@@ -85,10 +85,10 @@ pub fn ui(ui: &mut Ui, p: &mut Project) {
         painter.text(stage.center_top() + egui::vec2(0.0, 30.0), egui::Align2::CENTER_CENTER, "экран затемнён", egui::FontId::proportional(14.0), Color32::GRAY);
     }
     match selected.and_then(|i| scene.events.get(i)).map(|e| &e.kind) {
-        Some(EventKind::Say { speaker, style, text, .. }) => {
+        Some(EventKind::Say { speaker, style, text, look, .. }) => {
             let who = speaker.as_ref().and_then(|id| p.story.character(id)).map(|c| Speaker { name: c.name.clone(), color: c.color });
             let parts = spans(text, &p.story.initial_vars());
-            draw::dialog(&painter, stage, st.dialog, &draw::Line { speaker: who.as_ref(), style: *style, spans: &parts, shown: draw::char_count(&parts) }, &p.story.meta.text);
+            draw::dialog(&painter, stage, st.dialog, &draw::Line { speaker: who.as_ref(), style: *style, spans: &parts, shown: draw::char_count(&parts) }, &TextSettings { color: look.color.unwrap_or(p.story.meta.text.color), size: p.story.meta.text.size * look.size.unwrap_or(1.0), ..p.story.meta.text.clone() });
         }
         Some(EventKind::Choice { prompt, options }) => {
             let unit = stage.height();

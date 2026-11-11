@@ -260,6 +260,22 @@ pub enum TextStyle {
     System,
 }
 
+/// Оформление отдельной реплики.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
+pub struct TextLook {
+    #[serde(default)]
+    pub color: Option<[u8; 3]>,
+    /// Множитель к размеру шрифта проекта (1 — без изменений).
+    #[serde(default)]
+    pub size: Option<f32>,
+}
+
+impl TextLook {
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum DialogPos {
@@ -313,6 +329,9 @@ pub enum EventKind {
         speed: Option<f32>,
         #[serde(default)]
         sound: Option<String>,
+        /// Своё оформление этой реплики; пусто — как задано для всего проекта.
+        #[serde(default, skip_serializing_if = "TextLook::is_default")]
+        look: TextLook,
     },
     DialogBox { pos: DialogPos },
     PlayMusic { track: String, volume: f32, fade: f32, looped: bool },

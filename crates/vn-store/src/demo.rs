@@ -213,10 +213,10 @@ impl Builder {
     fn say(&self, who: Option<&str>, text: &str) -> Event {
         let speaker = who.and_then(|n| self.story.characters.iter().find(|c| c.name == n)).map(|c| c.id.clone());
         let style = if speaker.is_some() { TextStyle::Dialogue } else { TextStyle::Narration };
-        Event::new(EventKind::Say { speaker, style, text: text.into(), expression: None, speed: None, sound: None })
+        Event::new(EventKind::Say { speaker, style, text: text.into(), expression: None, speed: None, sound: None, look: TextLook::default() })
     }
     fn think(&self, text: &str) -> Event {
-        Event::new(EventKind::Say { speaker: self.story.wardrobe.hero.clone(), style: TextStyle::Thought, text: text.into(), expression: None, speed: None, sound: None })
+        Event::new(EventKind::Say { speaker: self.story.wardrobe.hero.clone(), style: TextStyle::Thought, text: text.into(), expression: None, speed: None, sound: None, look: TextLook::default() })
     }
     fn who(&self, name: &str) -> CharId {
         self.story.characters.iter().find(|c| c.name == name).map(|c| c.id.clone()).unwrap_or_default()

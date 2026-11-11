@@ -9,7 +9,7 @@ use vn_store::saves::{SaveStore, QUICK};
 use vn_view::{DirAssets, GameView};
 
 fn say(text: &str) -> Event {
-    Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: text.into(), expression: None, speed: None, sound: None })
+    Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: text.into(), expression: None, speed: None, sound: None, look: TextLook::default() })
 }
 
 fn story() -> Story {

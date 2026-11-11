@@ -330,7 +330,7 @@ mod tests {
     fn undefined_variables_characters_and_clothes() {
         let mut s = branching();
         s.variables.clear();
-        s.scenes[0].events.insert(0, Event::new(EventKind::Say { speaker: Some("ghost".into()), style: TextStyle::Dialogue, text: "Привет, {name}".into(), expression: None, speed: None, sound: None }));
+        s.scenes[0].events.insert(0, Event::new(EventKind::Say { speaker: Some("ghost".into()), style: TextStyle::Dialogue, text: "Привет, {name}".into(), expression: None, speed: None, sound: None, look: TextLook::default() }));
         s.scenes[0].events.insert(0, Event::new(EventKind::SetOutfit { slot: "top".into(), item: Some("coat".into()) }));
         let m = messages(&s, &[]);
         assert!(has(&m, Severity::Warning, "Переменная «name» не определена"));

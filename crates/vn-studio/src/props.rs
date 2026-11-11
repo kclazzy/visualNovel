@@ -114,7 +114,7 @@ fn kind_edit(ui: &mut Ui, id: &EventId, lists: &Lists, kind: &mut EventKind) {
                 }
             }
         }
-        EventKind::Say { speaker, style, text, expression, speed, sound } => {
+        EventKind::Say { speaker, style, text, expression, speed, sound, look } => {
             ui.horizontal(|ui| {
                 ui.weak("Говорит");
                 if pick_opt(ui, (id, "speaker"), speaker, &lists.chars, "автор (без имени)") {
@@ -141,6 +141,22 @@ fn kind_edit(ui: &mut Ui, id: &EventId, lists: &Lists, kind: &mut EventKind) {
                 ui.weak("Звук");
                 let sounds = lists.assets(AssetKind::Sound);
                 pick_opt(ui, (id, "say-sound"), sound, &sounds, "без звука");
+            });
+            ui.horizontal(|ui| {
+                let mut own_color = look.color.is_some();
+                if ui.checkbox(&mut own_color, "свой цвет").changed() {
+                    look.color = own_color.then_some([255, 214, 107]);
+                }
+                if let Some(c) = &mut look.color {
+                    ui.color_edit_button_srgb(c);
+                }
+                let mut own_size = look.size.is_some();
+                if ui.checkbox(&mut own_size, "свой размер").changed() {
+                    look.size = own_size.then_some(1.25);
+                }
+                if let Some(s) = &mut look.size {
+                    ui.add(egui::Slider::new(s, 0.5..=2.5).fixed_decimals(2).prefix("×"));
+                }
             });
         }
         EventKind::DialogBox { pos } => {

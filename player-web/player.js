@@ -268,6 +268,9 @@
     $('choices').style.display = p.kind === 'choice' ? 'flex' : 'none';
     if (p.kind === 'text') {
       tb.className = p.style;
+      // Оформление реплики: цвет и размер приходят из движка уже рассчитанными.
+      $('text').style.fontSize = `calc(var(--h, 400px) * ${p.size})`;
+      $('text').style.color = `rgb(${p.color.join(',')})`;
       $('name').textContent = p.speaker ? p.speaker.name : '';
       $('name').style.color = p.speaker ? `rgb(${p.speaker.color.join(',')})` : '';
       if (p.sound && !instant) playSound(p.sound, 1);

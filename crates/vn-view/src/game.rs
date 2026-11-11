@@ -5,6 +5,7 @@ use crate::audio::Audio;
 use crate::draw;
 use egui::{vec2, Align, Color32, CornerRadius, FontId, Key, Layout, Rect, RichText, Sense, Ui, UiBuilder};
 use std::sync::Arc;
+use vn_core::model::TextSettings;
 use vn_core::model::{SceneId, SlotId, Story};
 use vn_core::runtime::Runtime;
 use vn_core::save::Restored;
@@ -384,7 +385,7 @@ impl GameView {
         let mut tap = clicked || keys[0] || keys[1];
 
         match &view.prompt {
-            Prompt::Text { speaker, style, spans, speed, seen, .. } => {
+            Prompt::Text { speaker, style, spans, speed, seen, color, size, .. } => {
                 let total = draw::char_count(spans) as f32;
                 if skipping && *seen || self.settings.text_speed >= 5.0 {
                     self.typed = total;
@@ -405,7 +406,7 @@ impl GameView {
                     self.skip = false;
                 }
                 if !self.hide_ui {
-                    draw::dialog(&ui.painter_at(stage), stage, view.dialog, &draw::Line { speaker: speaker.as_ref(), style: *style, spans, shown: self.typed as usize }, &self.story.meta.text);
+                    draw::dialog(&ui.painter_at(stage), stage, view.dialog, &draw::Line { speaker: speaker.as_ref(), style: *style, spans, shown: self.typed as usize }, &TextSettings { color: *color, size: *size, speed: *speed });
                 }
             }
             Prompt::Choice { prompt, options } => {

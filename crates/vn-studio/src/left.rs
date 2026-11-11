@@ -243,10 +243,29 @@ fn variables_tab(ui: &mut Ui, p: &mut Project) {
     }
     ui.weak("Переменные хранят последствия выборов: доверие, деньги, найден ли предмет. В тексте подставляются как {имя}.");
     let mut remove = None;
+    let mut renamed: Option<Result<(String, String), &str>> = None;
     egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+        let names: Vec<String> = p.story.variables.iter().map(|v| v.name.clone()).collect();
+        let memory = egui::Id::unique("var-rename");
         for (n, v) in p.story.variables.iter_mut().enumerate() {
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut v.name).desired_width(110.0).hint_text("имя"));
+                let field = ui.add(egui::TextEdit::singleline(&mut v.name).desired_width(110.0).hint_text("имя"));
+                if field.gained_focus() {
+                    ui.data_mut(|d| d.insert_temp(memory, (n, v.name.clone())));
+                }
+                if field.lost_focus() {
+                    // Имя закреплено: теперь его можно разнести по событиям.
+                    if let Some((_, old)) = ui.data_mut(|d| d.remove_temp::<(usize, String)>(memory)).filter(|(i, old)| *i == n && *old != v.name) {
+                        v.name = v.name.trim().to_string();
+                        let taken = names.iter().enumerate().any(|(i, other)| i != n && *other == v.name);
+                        if v.name.is_empty() || taken {
+                            v.name = old;
+                            renamed = Some(Err("Имя переменной должно быть непустым и не совпадать с другими — возвращено прежнее."));
+                        } else {
+                            renamed = Some(Ok((old, v.name.clone())));
+                        }
+                    }
+                }
                 ui.label("=");
                 widgets::value_edit(ui, &mut v.initial);
                 if ui.small_button("✖").clicked() {
@@ -259,6 +278,14 @@ fn variables_tab(ui: &mut Ui, p: &mut Project) {
     });
     if let Some(n) = remove {
         p.story.variables.remove(n);
+    }
+    match renamed {
+        Some(Ok((old, new))) => {
+            let n = ops::rename_var(&mut p.story, &old, &new);
+            p.status = format!("Переменная «{old}» переименована в «{new}»; исправлено событий: {n}");
+        }
+        Some(Err(e)) => p.status = e.into(),
+        None => {}
     }
 }
 

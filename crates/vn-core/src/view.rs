@@ -38,7 +38,8 @@ pub struct OptionView {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Prompt {
-    Text { speaker: Option<Speaker>, style: TextStyle, spans: Vec<Span>, speed: f32, seen: bool, sound: Option<String> },
+    /// `color` и `size` уже учитывают оформление реплики; `size` — высота шрифта в долях высоты экрана.
+    Text { speaker: Option<Speaker>, style: TextStyle, spans: Vec<Span>, speed: f32, seen: bool, sound: Option<String>, color: [u8; 3], size: f32 },
     Choice { prompt: String, options: Vec<OptionView> },
     Wait { seconds: f32 },
     Wardrobe { slots: Vec<SlotId> },
@@ -129,13 +130,15 @@ impl Runtime {
     pub fn view(&self) -> View {
         let st: &GameState = &self.state;
         let prompt = match (self.pending(), self.current_event().map(|e| &e.kind)) {
-            (Pending::Text, Some(EventKind::Say { speaker, style, text, speed, sound, .. })) => Prompt::Text {
+            (Pending::Text, Some(EventKind::Say { speaker, style, text, speed, sound, look, .. })) => Prompt::Text {
                 speaker: speaker.as_ref().and_then(|id| self.story.character(id)).map(|c| Speaker { name: c.name.clone(), color: c.color }),
                 style: *style,
                 spans: spans(text, &st.vars),
                 speed: speed.unwrap_or(self.story.meta.text.speed),
                 seen: st.event.as_ref().is_some_and(|e| st.seen.contains(e)),
                 sound: sound.clone().filter(|s| !s.is_empty()),
+                color: look.color.unwrap_or(self.story.meta.text.color),
+                size: self.story.meta.text.size * look.size.unwrap_or(1.0),
             },
             (Pending::Choice, Some(EventKind::Choice { prompt, .. })) => Prompt::Choice { prompt: plain_text(prompt, &st.vars), options: self.options().into_iter().map(|o| OptionView { id: o.id.clone(), text: plain_text(&o.text, &st.vars) }).collect() },
             (Pending::Delay(s) | Pending::Wait(s), _) => Prompt::Wait { seconds: *s },
@@ -203,7 +206,7 @@ mod tests {
                 Event::new(EventKind::ShowCharacter { character: "hero".into(), expression: "base".into(), pos: Pos { x: 0.5, y: 1.0, scale: 0.5 }, fade: 0.0 }),
                 Event::new(EventKind::SetOutfit { slot: "top".into(), item: Some("shirt".into()) }),
                 Event::new(EventKind::SetOutfit { slot: "hair_back".into(), item: Some("tail".into()) }),
-                Event::new(EventKind::Say { speaker: Some("hero".into()), style: TextStyle::Dialogue, text: "Я *готов*".into(), expression: None, speed: None, sound: None }),
+                Event::new(EventKind::Say { speaker: Some("hero".into()), style: TextStyle::Dialogue, text: "Я *готов*".into(), expression: None, speed: None, sound: None, look: TextLook::default() }),
             ],
         )]);
         s.characters = vec![hero];
@@ -214,6 +217,31 @@ mod tests {
             anytime: true,
         };
         s
+    }
+
+    #[test]
+    fn line_look_overrides_project_text_settings_only_where_set() {
+        let mut s = hero_story();
+        s.meta.text = TextSettings { size: 0.04, color: [9, 9, 9], speed: 40.0 };
+        let look = |s: &Story| match Runtime::new(s.clone()).view().prompt {
+            Prompt::Text { color, size, .. } => (color, size),
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(look(&s), ([9, 9, 9], 0.04));
+        if let EventKind::Say { look, .. } = &mut s.scenes[0].events[3].kind {
+            *look = TextLook { color: Some([255, 0, 0]), size: Some(1.5) };
+        }
+        let (color, size) = look(&s);
+        assert_eq!(color, [255, 0, 0]);
+        assert!((size - 0.06).abs() < 1e-6);
+    }
+
+    #[test]
+    fn old_project_files_without_look_still_load_and_stay_unchanged() {
+        let json = r#"{"id":"e","type":"say","speaker":null,"text":"x"}"#;
+        let e: Event = serde_json::from_str(json).unwrap();
+        assert!(matches!(&e.kind, EventKind::Say { look, .. } if look.is_default()));
+        assert!(!serde_json::to_string(&e).unwrap().contains("look"), "обычная реплика не обрастает новым полем");
     }
 
     #[test]

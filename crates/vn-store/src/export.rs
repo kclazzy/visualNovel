@@ -166,7 +166,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut story = crate::project::create(tmp.path(), "Моя <новелла>").unwrap();
         fs::write(tmp.path().join("assets/backgrounds/Комната 1.png"), b"PNG").unwrap();
-        let say = |t: &str| Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: t.into(), expression: None, speed: None, sound: None });
+        let say = |t: &str| Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: t.into(), expression: None, speed: None, sound: None, look: TextLook::default() });
         story.scenes[0].events = vec![Event::new(EventKind::Background { image: "assets/backgrounds/Комната 1.png".into(), fade: 0.0 }), say("Первая"), say("Вторая"), Event::new(EventKind::End { title: "Конец".into() })];
         (tmp, story)
     }
@@ -207,7 +207,7 @@ mod tests {
         story.meta.story_version = 2;
         story.meta.version = "1.1".into();
         let mut next = Scene::new("Глава 2");
-        next.events = vec![Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: "Продолжение".into(), expression: None, speed: None, sound: None }), Event::new(EventKind::End { title: "Конец главы 2".into() })];
+        next.events = vec![Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: "Продолжение".into(), expression: None, speed: None, sound: None, look: TextLook::default() }), Event::new(EventKind::End { title: "Конец главы 2".into() })];
         story.scenes[0].events.pop();
         story.scenes[0].events.push(Event::new(EventKind::Goto { scene: next.id.clone() }));
         story.scenes.push(next);

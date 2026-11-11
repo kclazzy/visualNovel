@@ -13,7 +13,7 @@ fn ev(id: &str, kind: EventKind) -> Event {
 }
 
 fn say(id: &str, speaker: Option<&str>, style: TextStyle, text: &str) -> Event {
-    ev(id, EventKind::Say { speaker: speaker.map(Into::into), style, text: text.into(), expression: None, speed: None, sound: None })
+    ev(id, EventKind::Say { speaker: speaker.map(Into::into), style, text: text.into(), expression: None, speed: None, sound: None, look: TextLook::default() })
 }
 
 fn scene(id: &str, events: Vec<Event>) -> Scene {
@@ -77,7 +77,7 @@ fn story() -> Story {
                 ev("e17", EventKind::Fade { out: true, duration: 0.4 }),
                 ev("e18", EventKind::Background { image: String::new(), fade: 0.0 }),
                 ev("e19", EventKind::Fade { out: false, duration: 0.4 }),
-                ev("e20", EventKind::Say { speaker: Some("ann".into()), style: TextStyle::Thought, text: "Что же выбрать…".into(), expression: Some("smile".into()), speed: Some(12.5), sound: Some("assets/sounds/voice.ogg".into()) }),
+                ev("e20", EventKind::Say { speaker: Some("ann".into()), style: TextStyle::Thought, text: "Что же выбрать…".into(), expression: Some("smile".into()), speed: Some(12.5), sound: Some("assets/sounds/voice.ogg".into()), look: TextLook { color: Some([255, 120, 0]), size: Some(1.5) } }),
                 ev("e21", EventKind::Choice { prompt: "Что делать, {name}?".into(), options }),
                 say("e22", Some("hero"), TextStyle::Dialogue, "Я остаюсь. Имя теперь: {name}, новое: {fresh}."),
                 ev("e23", EventKind::SetOutfit { slot: "hair_back".into(), item: None }),

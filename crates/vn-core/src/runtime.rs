@@ -364,7 +364,7 @@ pub(crate) mod tests {
     use crate::cond::Cond;
 
     pub fn say(text: &str) -> Event {
-        Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: text.into(), expression: None, speed: None, sound: None })
+        Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: text.into(), expression: None, speed: None, sound: None, look: TextLook::default() })
     }
 
     pub fn scene(id: &str, events: Vec<Event>) -> Scene {

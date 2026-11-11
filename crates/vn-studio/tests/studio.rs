@@ -227,3 +227,21 @@ fn hotkeys_save_undo_and_delete_the_selected_event() {
     assert_eq!(story(&h).scenes[0].events.len(), 1, "Ctrl+Z возвращает его");
     assert!(tmp.path().join("novel/backups").read_dir().unwrap().flatten().any(|f| f.file_name().to_string_lossy().starts_with("backup-")), "перед первым сохранением сделана резервная копия");
 }
+
+#[test]
+fn renaming_a_variable_in_the_list_updates_the_story_that_uses_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut h = with_project(tmp.path(), NewKind::Demo);
+    click(&mut h, "Переменные");
+    h.get_all_by_value("деньги").next().unwrap().focus();
+    h.run();
+    h.get_all_by_value("деньги").next().unwrap().type_text("_в_кармане");
+    h.run();
+    h.key_press(egui::Key::Tab);
+    h.run();
+    let s = story(&h);
+    assert!(s.variables.iter().any(|v| v.name == "деньги_в_кармане"), "{:?}", s.variables.iter().map(|v| &v.name).collect::<Vec<_>>());
+    let json = serde_json::to_string(&s.scenes).unwrap();
+    assert!(json.contains("деньги_в_кармане") && !json.contains("\"деньги\"") && !json.contains("{деньги}"), "события следуют за новым именем");
+    assert!(!vn_core::validate::has_errors(&vn_core::validate::validate(s, &h.state().project.as_ref().unwrap().files)), "после переименования история цела");
+}

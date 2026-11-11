@@ -139,7 +139,7 @@ fn say_events(story: &mut Story, lines: &[DraftLine]) -> Vec<Event> {
                 (Some(_), false) => TextStyle::Dialogue,
                 (None, false) => TextStyle::Narration,
             };
-            Event::new(EventKind::Say { speaker, style, text: l.text.trim().to_string(), expression: None, speed: None, sound: None })
+            Event::new(EventKind::Say { speaker, style, text: l.text.trim().to_string(), expression: None, speed: None, sound: None, look: TextLook::default() })
         })
         .collect()
 }

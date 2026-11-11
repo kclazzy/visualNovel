@@ -73,8 +73,8 @@ pub fn palette(story: &Story, scene: &SceneId) -> Vec<EventKind> {
     let slot = story.wardrobe.slots.first().map(|s| s.id.clone()).unwrap_or_default();
     let item = story.wardrobe.items.first().map(|i| i.id.clone()).unwrap_or_default();
     vec![
-        EventKind::Say { speaker: story.characters.first().map(|c| c.id.clone()), style: TextStyle::Dialogue, text: String::new(), expression: None, speed: None, sound: None },
-        EventKind::Say { speaker: None, style: TextStyle::Narration, text: String::new(), expression: None, speed: None, sound: None },
+        EventKind::Say { speaker: story.characters.first().map(|c| c.id.clone()), style: TextStyle::Dialogue, text: String::new(), expression: None, speed: None, sound: None, look: TextLook::default() },
+        EventKind::Say { speaker: None, style: TextStyle::Narration, text: String::new(), expression: None, speed: None, sound: None, look: TextLook::default() },
         EventKind::Background { image: String::new(), fade: 0.5 },
         EventKind::ShowCharacter { character: ch.clone(), expression: expr.clone(), pos: Pos::CENTER, fade: 0.3 },
         EventKind::HideCharacter { character: ch.clone(), fade: 0.3 },
@@ -215,6 +215,52 @@ pub fn bump_release(story: &mut Story, version: &str) {
     }
 }
 
+fn rename_in_cond(cond: &mut vn_core::cond::Cond, old: &str, new: &str) {
+    use vn_core::cond::Cond;
+    match cond {
+        Cond::Cmp { var, .. } => {
+            if var == old {
+                *var = new.to_string();
+            }
+        }
+        Cond::And { items } | Cond::Or { items } => items.iter_mut().for_each(|c| rename_in_cond(c, old, new)),
+        Cond::Not { cond } => rename_in_cond(cond, old, new),
+    }
+}
+
+/// Переименовать переменную везде, где она используется: в изменениях, условиях и подстановках `{имя}`.
+/// Само объявление редактор уже изменил. Возвращает число исправленных событий.
+pub fn rename_var(story: &mut Story, old: &str, new: &str) -> usize {
+    let (from, to) = (format!("{{{old}}}"), format!("{{{new}}}"));
+    let mut touched = 0;
+    for e in story.scenes.iter_mut().flat_map(|s| &mut s.events) {
+        let before = e.kind.clone();
+        let fix_op = |op: &mut VarOp| {
+            if op.var == old {
+                op.var = new.to_string();
+            }
+        };
+        match &mut e.kind {
+            EventKind::SetVar(op) => fix_op(op),
+            EventKind::Branch { cond, .. } => rename_in_cond(cond, old, new),
+            EventKind::Say { text, .. } => *text = text.replace(&from, &to),
+            EventKind::Choice { prompt, options } => {
+                *prompt = prompt.replace(&from, &to);
+                for o in options {
+                    o.text = o.text.replace(&from, &to);
+                    o.effects.iter_mut().for_each(fix_op);
+                    if let Some(c) = &mut o.cond {
+                        rename_in_cond(c, old, new);
+                    }
+                }
+            }
+            _ => {}
+        }
+        touched += usize::from(e.kind != before);
+    }
+    touched
+}
+
 /// Убрать ссылки на удалённый файл ресурса.
 pub fn forget_asset(story: &mut Story, path: &str) {
     for c in &mut story.characters {
@@ -316,6 +362,28 @@ mod tests {
         assert_eq!(titles.len(), kinds.len(), "пункты меню не повторяются");
         assert!(kinds.iter().all(|k| !summary(&s, k).is_empty()));
         assert_eq!(summary(&s, &EventKind::Goto { scene: "nope".into() }), "→ несуществующая сцена");
+    }
+
+    #[test]
+    fn renaming_a_variable_follows_it_into_effects_conditions_and_text() {
+        use vn_core::cond::Cond;
+        let (mut s, a, b, _) = story3();
+        let mut opt = ChoiceOption::new("Отдать {money} монет", Some(b.clone()));
+        opt.cond = Some(Cond::parse("money >= 10 и не (trust < 2 или money == 0)").unwrap());
+        opt.effects = vec![VarOp { var: "money".into(), action: VarAction::Sub, value: Value::Int(10) }, VarOp { var: "trust".into(), action: VarAction::Add, value: Value::Int(1) }];
+        s.scene_mut(&a).unwrap().events = vec![
+            Event::new(EventKind::Say { speaker: None, style: TextStyle::Narration, text: "В кармане {money}, доверие {trust}.".into(), expression: None, speed: None, sound: None, look: TextLook::default() }),
+            Event::new(EventKind::SetVar(VarOp { var: "money".into(), action: VarAction::Add, value: Value::Int(5) })),
+            Event::new(EventKind::Branch { cond: Cond::parse("money > 100").unwrap(), scene: b.clone() }),
+            Event::new(EventKind::Choice { prompt: "{money}?".into(), options: vec![opt] }),
+            Event::new(EventKind::End { title: "money".into() }),
+        ];
+        assert_eq!(rename_var(&mut s, "money", "монеты"), 4);
+        let json = serde_json::to_string(&s.scenes[0]).unwrap();
+        assert_eq!(json.matches("money").count(), 1, "осталось только название концовки — оно не переменная: {json}");
+        assert_eq!(json.matches("trust").count(), 3, "чужая переменная не тронута");
+        let EventKind::Choice { options, .. } = &s.scenes[0].events[3].kind else { unreachable!() };
+        assert_eq!(options[0].cond.as_ref().unwrap().to_string(), Cond::parse("монеты >= 10 и не (trust < 2 или монеты == 0)").unwrap().to_string());
     }
 
     #[test]
