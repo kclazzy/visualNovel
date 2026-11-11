@@ -8,7 +8,9 @@ pub fn asset_name(path: &str) -> &str {
 
 fn short(text: &str, max: usize) -> String {
     let line = text.replace('\n', " ");
-    if line.chars().count() > max {
+    if line.trim().is_empty() {
+        "(пусто)".into()
+    } else if line.chars().count() > max {
         format!("{}…", line.chars().take(max).collect::<String>())
     } else {
         line
