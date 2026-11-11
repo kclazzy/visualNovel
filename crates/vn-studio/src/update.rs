@@ -57,12 +57,19 @@ fn agent() -> ureq::Agent {
     ureq::Agent::config_builder().http_status_as_error(false).timeout_global(Some(std::time::Duration::from_secs(300))).build().into()
 }
 
-pub fn check() -> Result<Check, String> {
-    let url = format!("https://api.github.com/repos/{REPO}/releases/latest");
+pub const GITHUB_API: &str = "https://api.github.com";
+
+/// Узнать о последнем выпуске. `api` — адрес GitHub API (в тестах — локальный сервер).
+pub fn check_at(api: &str) -> Result<Check, String> {
+    let url = format!("{api}/repos/{REPO}/releases/latest");
     let mut resp = agent().get(&url).header("User-Agent", "vn-studio").header("Accept", "application/vnd.github+json").call().map_err(|e| format!("Нет связи с GitHub: {e}"))?;
     let status = resp.status().as_u16();
     let json: Value = resp.body_mut().read_json().unwrap_or(Value::Null);
     decide(status, &json, CURRENT)
+}
+
+pub fn check() -> Result<Check, String> {
+    check_at(GITHUB_API)
 }
 
 /// Распаковать архив выпуска в папку программы. Заменяемые файлы переименовываются в `*.old`:
@@ -111,14 +118,19 @@ pub fn program_dir() -> Result<PathBuf, String> {
     std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)).ok_or_else(|| "Не удалось определить папку программы.".to_string())
 }
 
-pub fn install(release: &Release) -> Result<(), String> {
+/// Скачать архив выпуска и распаковать его в папку `dir`.
+pub fn install_to(release: &Release, dir: &Path) -> Result<(), String> {
     let url = release.asset.as_ref().ok_or_else(|| format!("В выпуске {} нет архива для этой системы ({ASSET_SUFFIX}). Скачайте его вручную: {}", release.tag, release.page))?;
     let mut resp = agent().get(url).header("User-Agent", "vn-studio").call().map_err(|e| format!("Не удалось скачать обновление: {e}"))?;
     if resp.status().as_u16() != 200 {
         return Err(format!("Не удалось скачать обновление: код {}", resp.status().as_u16()));
     }
     let bytes = resp.body_mut().with_config().limit(1 << 30).read_to_vec().map_err(|e| format!("Обновление скачано не полностью: {e}"))?;
-    install_zip(&bytes, &program_dir()?).map(|_| ())
+    install_zip(&bytes, dir).map(|_| ())
+}
+
+pub fn install(release: &Release) -> Result<(), String> {
+    install_to(release, &program_dir()?)
 }
 
 /// Запустить обновлённый редактор заново.
