@@ -1,0 +1,29 @@
+[package]
+name = "vn-studio"
+version.workspace = true
+edition.workspace = true
+description = "Visual Novel Studio — редактор визуальных новелл"
+
+[dependencies]
+vn-core.workspace = true
+vn-store.workspace = true
+vn-view.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "x11", "wayland", "accesskit"] }
+rfd = "0.18"
+ureq = { version = "3", features = ["json"] }
+dirs = "6"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+egui_kittest = "0.37"
+tempfile = "3"
+
+[lib]
+name = "vn_studio"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vn-studio"
+path = "src/main.rs"
