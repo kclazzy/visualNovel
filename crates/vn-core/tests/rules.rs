@@ -271,5 +271,5 @@ fn copied_chapter_links_its_copies_to_each_other_and_keeps_outside_links() {
     assert!(targets.contains(&(d2.clone(), b2)) && targets.contains(&(d2, a2)), "условие и переход в копии ведут в копии");
     assert!(validate(&s, &files()).iter().all(|i| i.severity != Severity::Error), "копия не ломает проект (ID не повторяются)");
     let single = duplicate_scene(&mut s, &"b".into()).unwrap();
-    assert!(s.layout.get(&single).is_none() || s.layout.get(&single) != s.layout.get(&SceneId::from("b")), "копия не ложится точно на оригинал");
+    assert!(!s.layout.contains_key(&single) || s.layout.get(&single) != s.layout.get(&SceneId::from("b")), "копия не ложится точно на оригинал");
 }

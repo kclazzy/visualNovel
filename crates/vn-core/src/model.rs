@@ -105,7 +105,6 @@ impl VarOp {
         let new = match (self.action, vars.get(&self.var), &self.value) {
             (VarAction::Add, Some(Value::Int(a)), Value::Int(b)) => Value::Int(a.saturating_add(*b)),
             (VarAction::Sub, Some(Value::Int(a)), Value::Int(b)) => Value::Int(a.saturating_sub(*b)),
-            (VarAction::Add, None, Value::Int(b)) => Value::Int(*b),
             (VarAction::Sub, None, Value::Int(b)) => Value::Int(-*b),
             _ => self.value.clone(),
         };
