@@ -52,7 +52,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 .row input[type=range] { flex: 1; }
 .log p { margin: .35em 0; line-height: 1.35; }
 .log b { color: #ffd66b; }
-.wardrobe { display: flex; gap: 4%; height: 78%; }
+.wardrobe { display: flex; gap: 4%; height: calc(var(--h, 400px) * 0.72); }
 .wardrobe .doll { position: relative; flex: 0 0 34%; background: rgba(255, 255, 255, .06); border-radius: .5em; overflow: hidden; }
 .wardrobe .doll img { position: absolute; left: 50%; bottom: 0; height: 100%; transform: translateX(-50%); }
 .wardrobe .racks { flex: 1; overflow-y: auto; }

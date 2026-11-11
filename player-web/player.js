@@ -426,13 +426,13 @@
     };
     return b;
   }
-  function showPanel(title, fill, back) {
+  function showPanel(title, fill, back, backLabel) {
     clearTimeout(timer);
     overlay.replaceChildren();
     overlay.className = '';
     overlay.style.display = 'block';
     const head = el('h2', '', title);
-    if (back) head.appendChild(button('← Назад', back));
+    if (back) head.appendChild(button(backLabel || '← Назад', back));
     overlay.appendChild(head);
     const body = el('div');
     overlay.appendChild(body);
@@ -568,13 +568,10 @@
       draw();
       wrap.append(doll, racks);
       body.appendChild(wrap);
-      body.appendChild(
-        button('Готово', () => {
-          syncSprites(rt.view(), true);
-          done();
-        })
-      );
-    });
+    }, () => {
+      syncSprites(rt.view(), true);
+      done();
+    }, 'Готово');
   }
 
   function showEnding(title) {
