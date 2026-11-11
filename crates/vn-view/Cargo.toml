@@ -1,0 +1,19 @@
+[package]
+name = "vn-view"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["audio"]
+audio = ["dep:rodio"]
+
+[dependencies]
+vn-core.workspace = true
+vn-store.workspace = true
+egui = { version = "0.37", features = ["default_fonts"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+rodio = { version = "0.23", optional = true, default-features = false, features = ["playback", "mp3", "wav", "vorbis"] }
+
+[dev-dependencies]
+egui_kittest = "0.37"
+tempfile = "3"

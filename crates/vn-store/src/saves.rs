@@ -87,7 +87,8 @@ impl SaveStore {
 
     /// Самое свежее сохранение среди всех слотов — для кнопки «Продолжить».
     pub fn latest(&self) -> Option<SaveFile> {
-        let names = [AUTO.to_string(), QUICK.to_string()].into_iter().chain((1..=SLOTS).map(slot_name));
+        // При равном времени побеждает последний в списке — автосохранение.
+        let names = (1..=SLOTS).map(slot_name).chain([QUICK.to_string(), AUTO.to_string()]);
         names.filter_map(|n| self.read(&n)?.ok()).max_by_key(|s| s.saved_at)
     }
 

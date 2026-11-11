@@ -70,6 +70,15 @@ pub fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Дописать строку в журнал ошибок `dir/errors.log`. Сбой журнала работу не прерывает.
+pub fn log_error(dir: &Path, message: &str) {
+    use std::io::Write;
+    let _ = fs::create_dir_all(dir);
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(dir.join("errors.log")) {
+        let _ = writeln!(f, "{} {message}", stamp(now()));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

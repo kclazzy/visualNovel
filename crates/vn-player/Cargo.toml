@@ -1,0 +1,12 @@
+[package]
+name = "vn-player"
+version.workspace = true
+edition.workspace = true
+description = "Игровой движок: запускает историю из game_data/story.vnpak"
+
+[dependencies]
+vn-core.workspace = true
+vn-store.workspace = true
+vn-view.workspace = true
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "x11", "wayland", "accesskit"] }
+serde_json.workspace = true

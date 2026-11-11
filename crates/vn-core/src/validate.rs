@@ -177,7 +177,8 @@ impl<'a> Checker<'a> {
         }
         let last = s.events.last().expect("непустая");
         let closed = match &last.kind {
-            EventKind::Choice { options, .. } => !options.is_empty() && options.iter().all(|o| o.goto.is_some() && o.cond.is_none()),
+            // Выбор завершает сцену, если каждый вариант куда-то ведёт и хотя бы один доступен всегда.
+            EventKind::Choice { options, .. } => options.iter().all(|o| o.goto.is_some()) && options.iter().any(|o| o.cond.is_none()),
             k => k.is_terminal(),
         };
         if !closed {
