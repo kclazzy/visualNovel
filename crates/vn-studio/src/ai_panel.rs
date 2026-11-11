@@ -8,6 +8,8 @@ use std::sync::mpsc::{channel, Receiver};
 use vn_core::draft::{self, Draft};
 use vn_core::model::SceneId;
 
+type Reply = Result<String, String>;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Mode {
     NewStory,
@@ -24,7 +26,7 @@ pub struct AiPanel {
     /// Черновик, ожидающий решения автора, и то, куда он предназначен.
     pub draft: Option<(Draft, Mode, Option<SceneId>)>,
     pub message: Option<Result<String, String>>,
-    job: Option<(Receiver<Result<String, String>>, Mode, Option<SceneId>)>,
+    job: Option<(Receiver<Reply>, Mode, Option<SceneId>)>,
     models_job: Option<Receiver<Result<Vec<String>, String>>>,
     show_key: bool,
 }

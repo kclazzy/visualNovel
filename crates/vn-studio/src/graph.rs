@@ -116,7 +116,7 @@ pub fn ui(ui: &mut Ui, p: &mut Project) {
                 painter.text(rect.left_top() + vec2(12.0, 12.0), egui::Align2::LEFT_TOP, format!("{mark}{title}"), egui::FontId::proportional(15.0), Color32::WHITE);
                 let note = if !live.contains(id) { "недостижима от начала".to_string() } else if *ending { format!("концовка · событий: {count}") } else { format!("событий: {count}") };
                 painter.text(rect.left_bottom() + vec2(12.0, -10.0), egui::Align2::LEFT_BOTTOM, note, egui::FontId::proportional(11.0), Color32::from_gray(170));
-                if resp.dragged() {
+                if resp.dragged() && !resp.drag_started() {
                     let d = resp.drag_delta();
                     if let Some(pos) = p.story.layout.get_mut(id) {
                         pos[0] += d.x;

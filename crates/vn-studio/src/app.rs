@@ -327,6 +327,9 @@ impl Studio {
             p.status = "Сборка остановлена: исправьте ошибки (красные строки в списке замечаний)".into();
             return;
         }
+        if p.issues.as_ref().is_some_and(|i| i.is_empty()) {
+            p.issues = None;
+        }
         if let Err(e) = p.save() {
             self.error = Some(e);
             return;

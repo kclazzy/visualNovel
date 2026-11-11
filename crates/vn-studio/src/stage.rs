@@ -61,7 +61,8 @@ pub fn ui(ui: &mut Ui, p: &mut Project) {
             draw::placeholder(&painter, stage, &name, color, sp.x, sp.y, sp.height)
         });
         let r = ui.interact(rect.intersect(stage), egui::Id::unique(("sprite", &sp.id)), Sense::drag()).on_hover_cursor(egui::CursorIcon::Grab);
-        let delta = r.drag_delta();
+        // В кадре начала перетаскивания смещение указателя ещё не относится к спрайту.
+        let delta = if r.drag_started() { egui::Vec2::ZERO } else { r.drag_delta() };
         let zoom = if r.hovered() && scroll != 0.0 { (scroll * 0.002).exp() } else { 1.0 };
         if r.hovered() || r.dragged() {
             painter.rect_stroke(rect, 4.0, egui::Stroke::new(1.5, crate::app::ACCENT), egui::StrokeKind::Inside);

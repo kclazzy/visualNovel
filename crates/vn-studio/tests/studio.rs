@@ -205,3 +205,25 @@ fn preview_starts_the_game_from_the_selected_scene_and_every_tab_draws() {
     click(&mut h, "⚑ Концовки");
     h.get_by_label_contains("Концовок: 4");
 }
+
+#[test]
+fn hotkeys_save_undo_and_delete_the_selected_event() {
+    use egui::{Key, Modifiers};
+    let tmp = tempfile::tempdir().unwrap();
+    let mut h = with_project(tmp.path(), NewKind::Manual);
+    click(&mut h, "+ Событие");
+    click(&mut h, "Концовка");
+    h.step();
+    assert_eq!(story(&h).scenes[0].events.len(), 1);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::S);
+    h.run();
+    assert!(!h.state().project.as_ref().unwrap().dirty(), "Ctrl+S сохраняет");
+    h.key_press(Key::Delete);
+    h.run();
+    assert!(story(&h).scenes[0].events.is_empty(), "Delete удаляет выбранное событие");
+    h.step();
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run();
+    assert_eq!(story(&h).scenes[0].events.len(), 1, "Ctrl+Z возвращает его");
+    assert!(tmp.path().join("novel/backups").read_dir().unwrap().flatten().any(|f| f.file_name().to_string_lossy().starts_with("backup-")), "перед первым сохранением сделана резервная копия");
+}
