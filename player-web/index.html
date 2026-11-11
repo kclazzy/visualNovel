@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0d0d14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Визуальная новелла</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <div id="bg-old" class="bg"></div>
+  <div id="bg" class="bg"></div>
+  <div id="sprites"></div>
+  <div id="black"></div>
+  <div id="hud">
+    <button data-act="menu" title="Меню">☰</button>
+    <button data-act="auto" title="Автоматическое чтение">Авто</button>
+    <button data-act="skip" title="Пропуск прочитанного">Пропуск</button>
+    <button data-act="log" title="История диалогов">История</button>
+    <button data-act="quicksave" title="Быстрое сохранение">Б.сохр</button>
+    <button data-act="quickload" title="Быстрая загрузка">Б.загр</button>
+    <button data-act="hide" title="Скрыть интерфейс">Скрыть</button>
+  </div>
+  <div id="choices"></div>
+  <div id="textbox"><div id="name"></div><div id="text"></div><div id="next">▼</div></div>
+  <div id="overlay"></div>
+  <div id="toast"></div>
+</div>
+<script src="runtime.js"></script>
+<script src="player.js"></script>
+</body>
+</html>
