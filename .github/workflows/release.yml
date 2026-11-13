@@ -1,9 +1,13 @@
-# Выпуск редактора: тег vX.Y.Z собирает архивы и публикует их в GitHub Releases.
+# Выпуск редактора: архивы и установщик для Windows публикуются в GitHub Releases.
 # Оттуда их берёт кнопка «Обновить редактор».
+# Запуск: тег vX.Y.Z либо кнопка Run workflow во вкладке Actions (тег создастся сам).
+# Номер выпуска — это version в Cargo.toml; тег с другим номером отклоняется,
+# иначе редактор после обновления вечно считал бы себя устаревшим.
 name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -20,6 +24,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Номер выпуска
+        shell: bash
+        run: |
+          version=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          tag="v$version"
+          if [ "${{ github.ref_type }}" = "tag" ] && [ "${{ github.ref_name }}" != "$tag" ]; then
+            echo "Тег ${{ github.ref_name }} не совпадает с version = \"$version\" в Cargo.toml" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
       - if: matrix.os == 'ubuntu-latest'
         run: for i in 1 2 3 4 5; do sudo apt-get update && sudo apt-get install -y libasound2-dev && break || sleep 30; done; dpkg -s libasound2-dev > /dev/null
       - uses: Swatinem/rust-cache@v2
@@ -30,11 +45,20 @@ jobs:
           mkdir dist
           cp target/release/vn-studio${{ matrix.ext }} target/release/vn-player${{ matrix.ext }} README.md CHANGELOG.md dist/
           cd dist
-          if [ "${{ matrix.suffix }}" = "windows" ]; then 7z a ../vn-studio-${{ github.ref_name }}-windows.zip .; else zip -r ../vn-studio-${{ github.ref_name }}-linux.zip .; fi
+          if [ "${{ matrix.suffix }}" = "windows" ]; then 7z a ../vn-studio-$TAG-windows.zip .; else zip -r ../vn-studio-$TAG-linux.zip .; fi
+      - name: Собрать установщик Windows
+        if: matrix.suffix == 'windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=$env:VERSION" "/DDist=..\dist" "/DOutName=vn-studio-$env:TAG-windows-setup" installer\vn-studio.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Опубликовать
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "${{ github.ref_name }}" >/dev/null 2>&1 || gh release create "${{ github.ref_name }}" --title "Visual Novel Studio ${{ github.ref_name }}" --notes-file CHANGELOG.md
-          gh release upload "${{ github.ref_name }}" vn-studio-${{ github.ref_name }}-${{ matrix.suffix }}.zip --clobber
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "${{ github.sha }}" --title "Visual Novel Studio $TAG" --notes-file CHANGELOG.md || gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" vn-studio-$TAG-${{ matrix.suffix }}.zip --clobber
+          if [ "${{ matrix.suffix }}" = "windows" ]; then gh release upload "$TAG" vn-studio-$TAG-windows-setup.exe --clobber; fi

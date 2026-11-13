@@ -19,3 +19,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p vn-studio -p vn-player
       - run: cargo test -p vn-core -p vn-store
+      # Установщик собирается и здесь, чтобы ошибка в нём не всплыла только при выпуске.
+      - name: Собрать установщик
+        shell: pwsh
+        run: |
+          mkdir dist
+          Copy-Item target\release\vn-studio.exe, target\release\vn-player.exe, README.md, CHANGELOG.md dist
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc /DAppVersion=0.0.0 "/DDist=..\dist" /DOutName=setup-check installer\vn-studio.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -178,6 +178,14 @@ mod tests {
     }
 
     #[test]
+    fn installer_in_the_release_is_not_mistaken_for_the_update_archive() {
+        let mut json = release("v9.0.0");
+        json["assets"].as_array_mut().unwrap().insert(0, json!({"name": "vn-studio-v9.0.0-windows-setup.exe", "browser_download_url": "https://example.test/setup"}));
+        let Check::Available(r) = decide(200, &json, "0.1.0").unwrap() else { panic!("ожидалось обновление") };
+        assert_eq!(r.asset.as_deref(), Some("https://example.test/zip"));
+    }
+
+    #[test]
     fn same_release_means_up_to_date_and_missing_releases_are_explained() {
         assert_eq!(decide(200, &release("v0.1.0"), "0.1.0").unwrap(), Check::UpToDate);
         assert!(decide(404, &Value::Null, "0.1.0").unwrap_err().contains("нет опубликованных выпусков"));
